@@ -1,6 +1,3 @@
-(ns bentley-ottman.test.core
-  (:use [bentley-ottman.core])
+(ns bentley-ottmann.test.core
+  (:require (bentley-ottmann [main :as m] [data :as d]))
   (:use [clojure.test]))
-
-(deftest replace-me ;; FIXME: write
-  (is false "No tests have been written."))

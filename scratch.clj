@@ -7,8 +7,8 @@
     {:p1 {:x 0.0 :y 1.0} :p2 {:x 1.0 :y 0.0}}})
 
 
-(d/make-Segment)
+(d/make-Point 5 6)
 
-(d/make-Point)
+(d/make-Segment (d/make-Point 0 0) (d/make-Point 1 1))
 
 (map d/construct input-lines)
