@@ -1,4 +1,5 @@
-(ns bentley-ottmann.data)
+(ns bentley-ottmann.data
+  (:require (bentley-ottmann [math :as m])))
 
 (defprotocol SEGMENT
   (get-id [this])
@@ -9,6 +10,11 @@
   )
 
 (defprotocol POINT
+  (pos [this])                          ; Point's position as [x y].
+  (get-x [this])                        ; Get x position.
+  (get-y [this])                        ; Get y position.
+  (lt [this other])                     ; This point is before ("less than") other.
+  (same-pos [this other])               ; This point is at the same position as the other point.
   (is-left-endpoint [this])             ; This is the left end point of a line segment.
   (is-right-endpoint [this])            ; This is the right end point of a line segment.
   (get-segment [this])                  ; Get the line segment containing this point, or nil if an intersection.
@@ -30,51 +36,46 @@
   (add-unless-nil-or-present [this p])  ; Add a point unless it's nil or already present.
   )
 
-(deftype Segment [id lo-point hi-point]
+(deftype Segment [_id _lo-point _hi-point]
   SEGMENT
-  (get-id [this] id)
+  (get-id [this] _id)
+
+  (lo-point [this] _lo-point)
+  (hi-point [this] _hi-point)
   
   (same-segment [this other]
-    (= id (get-id other)))
+    (= _id (get-id other)))
 
   (intersect-with [this other]
-    nil)
+    (let [p0 [(get-x _lo-point) (get-y _lo-point)]
+          p1 [(get-x _hi-point) (get-y _hi-point)]
+          p2 [(get-x (lo-point other)) (get-y (lo-point other))]
+          p3 [(get-x (lo-point other)) (get-y (lo-point other))]]
+      (m/intersection p0 p1 p2 p3))
+    )
 
   Object
-  (toString [this] (str "#" id ": (" lo-point " => " hi-point ")")))
+  (toString [this] (str "#" _id ": (" _lo-point " => " _hi-point ")")))
 
 (deftype Point [id x y]
   POINT
-
+  (pos [this] [x y])
+  (get-x [this] x)
+  (get-y [this] y)
+  (lt [this other] (or (< x (get-x other))
+                       (and (= x (get-x other))
+                            (< y (get-y other)))))
+  (same-pos [this other] (and (= x (get-x other)) (= y (get-y other))))
+  
   Object
-    (toString [this] (str "#" id " (" x ", " y ")")))
+  (toString [this] (str "#" id " (" x ", " y ")")))
 
 (def id-counter (atom 0))
 
 (defn make-Point [x y]
-  (Point. (swap! id-counter inc) x y))
+   (Point. (swap! id-counter inc) x y))
 
-(defn make-Segment
-  "NOTE: points must be ordered."
-  [p1 p2]
-  (Segment. (swap! id-counter inc) p1 p2))
-
-(defn order-raw-line
-  "Order a raw line so that p1 is hit by sweep before p2."
-  [{p1 :p1 p2 :p2}]
-  (let [{x1 :x y1 :y} p1
-        {x2 :x y2 :y} p2]
-    (if (< x1 x2)
-      {:p1 p1 :p2 p2}
-      {:p1 p2 :p2 p1})))
-
-(defn construct
-  "Turns a raw line segment (any direction) into low and high points, each able to
-   return their comment line segment.
-  "
-  [line]
-  (let
-      [{p1 :p1 p2 :p2} (order-raw-line line)
-       lo-point (make-Point (:x p1) (:y p1))
-       hi-point (make-Point (:x p2) (:y p2))]
-    (make-Segment lo-point hi-point)))
+(defn make-Segment [p1 p2]
+  (let [[p1' p2']
+        (if (lt p1 p2) [p1 p2] [p2 p1])]
+   (Segment. (swap! id-counter inc) p1' p2')))

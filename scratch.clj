@@ -1,4 +1,5 @@
-(require '(bentley-ottmann [data :as d]))
+(require '(bentley-ottmann [data :as d]
+                           [math :as m]))
 
 
 (def input-lines
@@ -12,3 +13,9 @@
 (d/make-Segment (d/make-Point 0 0) (d/make-Point 1 1))
 
 (map d/construct input-lines)
+
+(m/intersection-projected [0 0] [1 1] [0 1] [1 0])
+
+(m/in-range 0 1/2 1)
+
+(m/intersection [0 0] [1 0] [0 1] [1 1])
