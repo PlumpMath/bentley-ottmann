@@ -1,5 +1,6 @@
 (ns bentley-ottmann.data
-  (:require (bentley-ottmann [math :as m])))
+  (:require (bentley-ottmann [math :as m]
+                             [util :as u])))
 
 (defprotocol STAMPED
   (get-id [this]))
@@ -24,7 +25,7 @@
   (remove-segment [this segment])       ; Remove a segment.
   (segment-above [this segment])        ; Get the segment above this one.
   (segment-below [this segment])        ; Get the segment below this one.
-  (ordered-intersecting-segments [this p]) ; Get [lo, hi], the segments intersecting p.
+  (ordered-intersecting-segments [this p]) ; Get [hi, lo], the segments intersecting p.
   (swap-segments [this seg1 seg2])      ; Swap these segments.
   )
 
@@ -80,15 +81,16 @@
   (hi-point [this] _hi-point)
   
   (intersect-with [this other]
-    (let [p0 [(get-x _lo-point) (get-y _lo-point)]
-          p1 [(get-x _hi-point) (get-y _hi-point)]
-          p2 [(get-x (lo-point other)) (get-y (lo-point other))]
-          p3 [(get-x (hi-point other)) (get-y (hi-point other))]
-          result (m/intersection p0 p1 p2 p3)]
-      (if (nil? result)
-        nil
-        (let [[x y] result] (make-Point x y))))
-    )
+    (if (nil? other)
+      nil
+      (let [p0 [(get-x _lo-point) (get-y _lo-point)]
+            p1 [(get-x _hi-point) (get-y _hi-point)]
+            p2 [(get-x (lo-point other)) (get-y (lo-point other))]
+            p3 [(get-x (hi-point other)) (get-y (hi-point other))]
+            result (m/intersection p0 p1 p2 p3)]
+        (if (nil? result)
+          nil
+          (let [[x y] result] (make-Point x y))))))
 
   Object
   (equals [this other]
@@ -121,12 +123,29 @@
   (add-segment [this sweep-x segment]
     (let [[below above]
           (split-with #(sweep-ordered sweep-x
-                                      [(pos (lo-point %1)) (pos (hi-point %1))]
-                                      [(pos (lo-point %2)) (pos (hi-point %2))]) ordered-segs)]
+                                      [(pos (lo-point %)) (pos (hi-point %))]
+                                      [(pos (lo-point segment)) (pos (hi-point segment))]) ordered-segs)]
       (SweepLine. (concat below (cons segment above)))))
 
+  (segment-above [this segment]
+    (let [[below above]
+          (split-with (partial not= segment) ordered-segs)]
+      (first (next above))
+      ))
+
+  (segment-below [this segment]
+    (let [[below above]
+          (split-with (partial not= segment) ordered-segs)]
+      (last below)))
+
+  (ordered-intersecting-segments [this p]
+    nil)
+
+  (swap-segments [this seg1 seg2]
+    nil)
+
   Object
-  (toString [this] (str ordered-segs)))
+  (toString [this] (str (reduce #(str %1 " " %2) "[" ordered-segs) "]")))
 
 (defn make-SweepLine [] (SweepLine. []))
 
@@ -140,8 +159,13 @@
   (split-first [this]
     [(first _points) (EndPointList. (rest _points))])
 
+  (add-unless-nil [this p]
+    (if (nil? p)
+      (EndPointList. _points)
+      (EndPointList. (u/insert lt p _points))))
+
   Object
-  (toString [this] "<ENDPOINTLIST>"))
+  (toString [this] (str _points)))
 
 (defn build-points [segs]
   (concat (map lo-point segs) (map hi-point segs)))

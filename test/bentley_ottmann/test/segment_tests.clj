@@ -1,5 +1,6 @@
 (ns bentley-ottmann.test.segment-tests
   (:require (bentley-ottmann [data :as d]))
+  (:import (bentley_ottmann.data SweepLine))
   (:use [expectations]))
 
 (let [p1 (d/make-Point 0 0)
@@ -46,3 +47,19 @@
            p11 {:sense :R :segment lo-seg}
            p01 {:sense :L :segment hi-seg}
            p10 {:sense :R :segment hi-seg}} (d/get-map seg-map)))
+
+(let [p00 (d/make-Point 0 0)
+      p11 (d/make-Point 1 1)
+      seg (d/make-Segment p00 p11)]
+  (expect nil? (d/intersect-with seg nil)))
+
+(let [p00 (d/make-Point 0 0)
+      p11 (d/make-Point 1 1)
+      seg1 (d/make-Segment p00 p11)
+      seg2 [d/make-Segment p00 p11]
+      seg3 (d/make-Segment p00 p11)
+      test-line (SweepLine. [seg1 seg2 seg3])]
+  (expect seg1 (d/segment-below test-line seg2))
+  (expect seg3 (d/segment-above test-line seg2))
+  (expect seg2 (d/segment-below test-line seg3))
+  (expect seg2 (d/segment-above test-line seg1)))

@@ -28,7 +28,7 @@
                   seg-B (d/segment-below sweep-line' seg-E)
                   i1-opt (d/intersect-with seg-E seg-A)
                   i2-opt (d/intersect-with seg-E seg-B)
-                  endpoint-list' (d/add-unless-nil i1-opt (d/add-unless-nil i2-opt E-rest))]
+                  endpoint-list' (d/add-unless-nil (d/add-unless-nil E-rest i2-opt) i1-opt)]
               (recur segment-map endpoint-list' sweep-line' output-list))
 
             (d/is-right-endpoint segment-map E)
