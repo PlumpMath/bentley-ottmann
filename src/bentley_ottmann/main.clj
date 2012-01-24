@@ -44,8 +44,7 @@
               [endpoint-list' sweep-line' output-list])
 
             :else                       ; Intersection point.
-            (let [;;[segE1 segE2] (d/ordered-intersecting-segments sweep-line E)
-                  [segE2 segE1] (u/debug "SURROUNDING" (d/get-lo-hi-segs E))
+            (let [[segE2 segE1] (u/debug "SURROUNDING" (d/get-lo-hi-segs E))
                   sweep-line' (u/debug "swapped" (d/swap-segments sweep-line segE1 segE2))
                   segA (d/segment-above sweep-line' segE2)
                   segB (d/segment-below sweep-line' segE1)
