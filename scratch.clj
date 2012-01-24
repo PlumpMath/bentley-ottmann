@@ -102,4 +102,38 @@ sl-3
 
 end-point-list
 
-(cons 3 '())1
+
+
+;;---
+
+(require '(bentley-ottmann [data :as data] [main :as main]))
+(import '(bentley_ottmann.data SweepLine))
+
+(defn seg [[p0-x p0-y] [p1-x p1-y]]
+  (let [p0 (data/make-Point p0-x p0-y)
+        p1 (data/make-Point p1-x p1-y)]
+    (data/make-Segment p0 p1)))
+
+(defn iter [n seg-map [epl sw out]]
+  (if (zero? n)
+    [epl sw out]
+    (recur (dec n) seg-map (main/bentley-ottmann-1 seg-map epl sw out))))
+
+(def s1 (seg [0 0] [1 1]))
+(def s2 (seg [0 1] [1 0]))
+
+(let [seg-map (data/make-SegmentMap [s1 s2])
+      [epl sw out] (iter 1 seg-map [(data/make-EndPointList [s1 s2])
+                                    (data/make-SweepLine)
+                                    []])]
+  {:epl epl :sw sw :out out})
+
+(data/add-unless-nil (data/make-EndPointList []) (data/make-Point 1 1))
+
+(data/add-unless-nil
+ (data/add-unless-nil (data/make-EndPointList []) (data/make-Point 1 1))
+ (data/make-Point 0 0))
+
+(data/add-unless-nil
+ (data/add-unless-nil (data/make-EndPointList []) (data/make-Point 0 0))
+ (data/make-Point 1 1))

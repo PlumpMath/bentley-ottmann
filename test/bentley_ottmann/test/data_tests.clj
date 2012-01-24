@@ -2,13 +2,26 @@
   (:require (bentley-ottmann [data :as d]))
   (:use [expectations]))
 
-(expect 1 (d/intersection-y 1 [0 0] [2 2]))
+(let [p00 (d/make-Point 0 0)
+      p11 (d/make-Point 1 1)]
+  (expect []
+          (d/get-data (d/add-unless-nil (d/make-EndPointList []) nil)))
+  
+  (expect [p00]
+          (d/get-data (d/add-unless-nil
+                       (d/add-unless-nil (d/make-EndPointList []) nil)
+                       p00)))
 
-(expect 2 (d/intersection-y 2 [0 0] [1 1]))
+  (expect [p00]
+          (d/get-data (d/add-unless-nil
+                       (d/add-unless-nil (d/make-EndPointList []) p00)
+                       nil)))
 
-(let [seg0 [[0 0] [2 2]]
-      seg1 [[0 2] [2 0]]]
-  (expect true?  (d/sweep-ordered   0 seg0 seg1))
-  (expect true?  (d/sweep-ordered 1/2 seg0 seg1))
-  (expect false? (d/sweep-ordered 3/2 seg0 seg1))
-  (expect false? (d/sweep-ordered   2 seg0 seg1)))
+  (expect [p00 p11]
+          (d/get-data (d/add-unless-nil
+                       (d/add-unless-nil (d/make-EndPointList []) p11)
+                       p00)))
+  (expect [p00 p11]
+          (d/get-data (d/add-unless-nil
+                       (d/add-unless-nil (d/make-EndPointList []) p00)
+                       p11))))

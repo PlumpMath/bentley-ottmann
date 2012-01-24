@@ -18,6 +18,7 @@
   (get-y [this])                        ; Get y position.
   (lt [this other])                     ; This point is before ("less than") other.
   (same-pos [this other])               ; This point is at the same position as the other point.
+  (get-lo-hi-segs [this])               ; Return [lo hi], the below and above segments at intersection, or nil if N/A.
   )
 
 (defprotocol SWEEPLINE
@@ -25,7 +26,6 @@
   (remove-segment [this segment])       ; Remove a segment.
   (segment-above [this segment])        ; Get the segment above this one.
   (segment-below [this segment])        ; Get the segment below this one.
-  (ordered-intersecting-segments [this p]) ; Get [hi, lo], the segments intersecting p.
   (swap-segments [this seg1 seg2])      ; Swap these segments.
   )
 
@@ -34,6 +34,7 @@
   (split-first [this])                  ; Return [first, rest].
   (add-unless-nil [this p])             ; Add a point (intersection) unless it's nil.
   (add-unless-nil-or-present [this p])  ; Add a point (intersection) unless it's nil or already present.
+  (get-data [this])
   )
 
 (defprotocol SEGMENTMAP
@@ -43,7 +44,7 @@
   (get-map [this])
   )
 
-(deftype Point [id x y]
+(deftype Point [id x y lo-hi-segs-opt]
   STAMPED
   (get-id [this] id)
 
@@ -51,10 +52,14 @@
   (pos [this] [x y])
   (get-x [this] x)
   (get-y [this] y)
+  ;; Ordering principally by increasing x, then increasing y.
   (lt [this other] (or (< x (get-x other))
                        (and (= x (get-x other))
                             (< y (get-y other)))))
+
   (same-pos [this other] (and (= x (get-x other)) (= y (get-y other))))
+
+  (get-lo-hi-segs [this] lo-hi-segs-opt)
   
   Object
   ;; Equality by ID, since we need to use individual points as hash keys.
@@ -65,12 +70,19 @@
   ;; Ditto for hashCode().
   (hashCode [this] id)
 
-  (toString [this] (str "#" id " (" x ", " y ")")))
+  (toString [this] (str "(#" id ": " x ", " y
+                        (if (nil? lo-hi-segs-opt)
+                          ""
+                          (let [[lo hi] lo-hi-segs-opt] (str " {#" (get-id lo) "^#" (get-id hi) "}")))
+                        ")")))
 
 (def id-counter (atom 0))
 
-(defn make-Point [x y]
-   (Point. (swap! id-counter inc) x y))
+(defn make-Point
+  ([x y]
+     (Point. (swap! id-counter inc) x y nil))
+  ([x y seg-below seg-above]
+     (Point. (swap! id-counter inc) x y [seg-below seg-above])))
 
 (deftype Segment [_id _lo-point _hi-point]
   STAMPED
@@ -80,7 +92,7 @@
   (lo-point [this] _lo-point)
   (hi-point [this] _hi-point)
   
-  (intersect-with [this other]
+  (intersect-with [this other]          ; NB: leftmost of this < leftmost of other.
     (if (nil? other)
       nil
       (let [p0 [(get-x _lo-point) (get-y _lo-point)]
@@ -90,7 +102,7 @@
             result (m/intersection p0 p1 p2 p3)]
         (if (nil? result)
           nil
-          (let [[x y] result] (make-Point x y))))))
+          (let [[x y] result] (make-Point x y this other))))))
 
   Object
   (equals [this other]
@@ -100,57 +112,46 @@
 
   (toString [this] (str "#" _id ": (" _lo-point " => " _hi-point ")")))
 
-(defn make-Segment [p0 p1]
+(defn make-Segment
+  "Create a segment from two points, ordering them if necessary."
+  [p0 p1]
   (let [[p0' p1']
         (if (lt p0 p1) [p0 p1] [p1 p0])]
     (Segment. (swap! id-counter inc) p0' p1')))
-
-;; TODO: deal with segments which are entirely vertical.
-(defn intersection-y
-  "Return canonical Y intersection point of this segment for a sweep value X."
-  [sweep-x p-lo p-hi]
-  (let [x-lo [sweep-x, -1]
-        x-hi [sweep-x, +1]]
-    (nth (m/intersection-projected x-lo x-hi p-lo p-hi) 1)))
-
-(defn sweep-ordered [sweep-x [s0-lo s0-hi] [s1-lo s1-hi]]
-  (let [y0 (intersection-y sweep-x s0-lo s0-hi)
-        y1 (intersection-y sweep-x s1-lo s1-hi)]
-    (< y0 y1)))                         ; TODO: check when points coincide.
 
 (deftype SweepLine [ordered-segs]
   SWEEPLINE
   (add-segment [this sweep-x segment]
     (let [[below above]
-          (split-with #(sweep-ordered sweep-x
+          (split-with #(m/sweep-ordered sweep-x
                                       [(pos (lo-point %)) (pos (hi-point %))]
                                       [(pos (lo-point segment)) (pos (hi-point segment))]) ordered-segs)]
       (SweepLine. (concat below (cons segment above)))))
 
+  (remove-segment [this segment]
+    (SweepLine. (remove (partial = segment) ordered-segs)))
+
   (segment-above [this segment]
     (let [[below above]
           (split-with (partial not= segment) ordered-segs)]
-      (first (next above))
-      ))
+      (first (next above))))
 
   (segment-below [this segment]
     (let [[below above]
           (split-with (partial not= segment) ordered-segs)]
       (last below)))
 
-  (ordered-intersecting-segments [this p]
-    nil)
-
   (swap-segments [this seg1 seg2]
-    nil)
+    (SweepLine. (replace {seg1 seg2
+                          seg2 seg1} ordered-segs)))
 
   Object
-  (toString [this] (str (reduce #(str %1 " " %2) "[" ordered-segs) "]")))
+  (toString [this] (u/prlist ordered-segs)))
 
 (defn make-SweepLine [] (SweepLine. []))
 
 ;; EndPointList contains (ordered) points but also a map from each (non-intersection) point to its
-;; segment, with a flag saying it starts or ends the segment.
+;; segment, with a flag saying whether it starts or ends the segment.
 
 (deftype EndPointList [_points]
   ENDPOINTLIST
@@ -161,23 +162,27 @@
 
   (add-unless-nil [this p]
     (if (nil? p)
-      (EndPointList. _points)
+      this
       (EndPointList. (u/insert lt p _points))))
 
+  (add-unless-nil-or-present [this p]
+    (if (nil? p)
+      this
+      (EndPointList. (u/insert-unless-present lt p _points))))
+
+  (get-data [this] _points)
+
   Object
-  (toString [this] (str _points)))
+  (toString [this] (u/prlist _points)))
 
 (defn build-points [segs]
-  (concat (map lo-point segs) (map hi-point segs)))
-
-(defn sort-points [pts]
-  (sort lt pts))
+  (sort lt (concat (map lo-point segs) (map hi-point segs))))
 
 (defn make-EndPointList
   "Takes an unordered list of segments. Turns them into an ordered point list,
    where each point can be mapped back to its segment."
   [segs]
-  (let [pts (sort-points (build-points segs))]
+  (let [pts (build-points segs)]
     (EndPointList. pts)))
 
 (deftype SegmentMap [map]

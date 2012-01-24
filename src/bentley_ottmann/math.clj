@@ -1,27 +1,5 @@
 (ns bentley-ottmann.math)
 
-(defn intersection-OLD
-  "Calculate intersection of line segment p0-p1 with segment p2-p3. Return [x y]
-   or nil if no intersection.
-
-   Algorithm lifted from Andre LeMothe's 'Tricks of the Windows Game Programming Gurus' (it says here)."
-  [p0 p1 p2 p3]
-
-  (let [[p0_x p0_y] p0
-        [p1_x p1_y] p1
-        [p2_x p2_y] p2
-        [p3_x p3_y] p3
-
-        s1_x (- p1_x p0_x)
-        s1_y (- p1_y p0_y)
-        s2_x (- p3_x p2_x)
-        s2_y (- p3_y p2_y)
-
-        s (/ (+ (* (- s1_y) (- p0_x p2_x)) ( * s1_x (- p0_y p2_y))) (+ (* (- s2_x) s1_y) (* s1_x s2_y)))
-        t (/ (- (*    s2_x  (- p0_y p2_y)) ( * s2_y (- p0_x p2_x))) (+ (* (- s2_x) s1_y) (* s1_x s2_y)))]
-
-    [s t]))
-
 (defn canonical-line
   "Turn line from p0 to p1 into [A B C] for Ax + By = C."
   [p0 p1]
@@ -67,3 +45,18 @@
                  (in-range p2_y iy p3_y))
           pt
           nil)))))
+
+;; TODO: deal with segments which are entirely vertical.
+(defn intersection-y
+  "Return canonical Y intersection point of this segment for a sweep value X."
+  [sweep-x p-lo p-hi]
+  (let [x-lo [sweep-x, -1]
+        x-hi [sweep-x, +1]]
+    (nth (intersection-projected x-lo x-hi p-lo p-hi) 1)))
+
+(defn sweep-ordered
+  "Determine whether two segments (as raw data) are in increasing Y order at a sweep position X."
+  [sweep-x [s0-lo s0-hi] [s1-lo s1-hi]]
+  (let [y0 (intersection-y sweep-x s0-lo s0-hi)
+        y1 (intersection-y sweep-x s1-lo s1-hi)]
+    (< y0 y1)))                         ; TODO: check when points coincide.
